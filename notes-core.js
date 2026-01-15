@@ -197,6 +197,43 @@ class NotesCore {
   }
 
   /**
+   * List all folders from Apple Notes
+   * @returns {Array} Array of folder objects with id, name, and noteCount
+   */
+  async listFolders() {
+    const script = `
+      tell application "Notes"
+        set folderList to {}
+        repeat with aFolder in folders
+          set folderId to id of aFolder
+          set folderName to name of aFolder
+          set folderNoteCount to count of notes in aFolder
+          set end of folderList to folderId & "|||" & folderName & "|||" & folderNoteCount
+        end repeat
+        set AppleScript's text item delimiters to "###"
+        return folderList as text
+      end tell
+    `;
+
+    const result = await this.executeAppleScript(script);
+
+    if (!result || result.trim() === '') {
+      return [];
+    }
+
+    const folders = result.split('###').map(folderStr => {
+      const [id, name, noteCount] = folderStr.split('|||');
+      return {
+        id: id?.trim() || '',
+        name: name?.trim() || '',
+        noteCount: parseInt(noteCount?.trim() || '0', 10)
+      };
+    }).filter(folder => folder.id && folder.name);
+
+    return folders;
+  }
+
+  /**
    * List all notes from Apple Notes
    * @param {Object} options - Options for listing notes
    * @param {number} options.limit - Maximum number of notes to return (default: 50)

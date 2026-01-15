@@ -38,6 +38,7 @@ ${colors.cyan}Apple Notes CLI${colors.reset} v${packageJson.version}
 ${colors.yellow}Usage:${colors.reset}
   notes-cli <title> [body]     Create a new note
   notes-cli list [--limit N]   List notes (default limit: 20)
+  notes-cli folders            List all folders
   notes-cli show <note-id>     Show note content in markdown
   notes-cli --version          Show version
   notes-cli --update           Check for updates
@@ -169,6 +170,36 @@ What would you like me to save to your Notes?
   }
 
   /**
+   * List all folders
+   */
+  async listFolders() {
+    try {
+      const folders = await this.core.listFolders();
+
+      if (folders.length === 0) {
+        console.log(`${colors.yellow}No folders found${colors.reset}`);
+        return;
+      }
+
+      console.log(`\n${colors.cyan}📁 Your Folders${colors.reset} (${folders.length} total)\n`);
+
+      folders.forEach((folder, index) => {
+        const num = String(index + 1).padStart(2, ' ');
+        const noteText = folder.noteCount === 1 ? 'note' : 'notes';
+        console.log(`${colors.gray}${num}.${colors.reset} ${colors.green}${folder.name}${colors.reset} ${colors.gray}(${folder.noteCount} ${noteText})${colors.reset}`);
+      });
+
+      console.log('');
+    } catch (error) {
+      console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
+      if (process.env.DEBUG === 'true') {
+        console.error(colors.gray, error.stack, colors.reset);
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
    * Show a note's content
    */
   async showNote(noteId) {
@@ -259,6 +290,12 @@ async function main() {
       limit = parseInt(args[limitIndex + 1], 10) || 20;
     }
     await cli.listNotes({ limit });
+    process.exit(0);
+  }
+
+  // Folders command
+  if (command === 'folders' || command === '--folders' || command === '-f') {
+    await cli.listFolders();
     process.exit(0);
   }
 
