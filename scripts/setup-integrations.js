@@ -23,7 +23,7 @@ class SetupIntegrations {
     this.homeDir = os.homedir();
     this.shellConfigFiles = [
       '.zshrc',
-      '.bashrc', 
+      '.bashrc',
       '.bash_profile',
       '.profile'
     ];
@@ -34,7 +34,7 @@ class SetupIntegrations {
    */
   setupShellAliases() {
     console.log(`\n${colors.cyan}Setting up shell aliases...${colors.reset}`);
-    
+
     const aliasContent = `
 # Apple Notes CLI shortcuts
 alias note='notes-cli'
@@ -42,19 +42,19 @@ alias n='notes-cli'
 `;
 
     let setupCount = 0;
-    
+
     for (const configFile of this.shellConfigFiles) {
       const configPath = path.join(this.homeDir, configFile);
-      
+
       if (fs.existsSync(configPath)) {
         const content = fs.readFileSync(configPath, 'utf8');
-        
+
         // Check if aliases already exist
         if (content.includes("alias note='notes-cli'")) {
           console.log(`  ${colors.gray}✓ Aliases already configured in ${configFile}${colors.reset}`);
           continue;
         }
-        
+
         // Add aliases
         try {
           fs.appendFileSync(configPath, aliasContent);
@@ -65,7 +65,7 @@ alias n='notes-cli'
         }
       }
     }
-    
+
     if (setupCount > 0) {
       console.log(`\n  ${colors.green}Shell aliases configured! Restart your terminal or run 'source ~/.zshrc' (or ~/.bashrc)${colors.reset}`);
     }
@@ -76,50 +76,80 @@ alias n='notes-cli'
    */
   setupClaudeCommands() {
     console.log(`\n${colors.cyan}Setting up Claude Code slash commands...${colors.reset}`);
-    
+
     // Possible Claude config locations
     const claudeConfigPaths = [
       path.join(this.homeDir, '.claude', 'commands.json'),
       path.join(this.homeDir, '.config', 'claude', 'commands.json'),
       path.join(this.homeDir, 'Library', 'Application Support', 'Claude', 'commands.json')
     ];
-    
-    const noteCommand = {
-      name: 'note',
-      description: 'Create a new Apple Note',
-      command: 'notes-cli',
-      args: ['$1', '$2'],
-      example: '/note "Meeting Notes" "## Agenda\\n- Item 1\\n- Item 2"'
-    };
-    
+
+    const noteCommands = [
+      {
+        name: 'note',
+        description: 'Create a new Apple Note',
+        command: 'notes-cli',
+        args: ['note', 'create', '$1', '$2'],
+        example: '/note "Meeting Notes" "## Agenda\\n- Item 1\\n- Item 2"'
+      },
+      {
+        name: 'note-list',
+        description: 'List all Apple Notes',
+        command: 'notes-cli',
+        args: ['notes', 'list', '--limit', '20'],
+        example: '/note-list'
+      },
+      {
+        name: 'folders',
+        description: 'List all Apple Notes folders',
+        command: 'notes-cli',
+        args: ['folders', 'list'],
+        example: '/folders'
+      },
+      {
+        name: 'note-show',
+        description: 'Show content of an Apple Note',
+        command: 'notes-cli',
+        args: ['note', '$1'],
+        example: '/note-show <note-id>'
+      },
+      {
+        name: 'folder-create',
+        description: 'Create a new folder in Apple Notes',
+        command: 'notes-cli',
+        args: ['folder', 'create', '$1'],
+        example: '/folder-create "Work"'
+      }
+    ];
+
     let configured = false;
-    
+
     for (const configPath of claudeConfigPaths) {
       const configDir = path.dirname(configPath);
-      
+
       if (fs.existsSync(configDir)) {
         try {
           let commands = [];
-          
+
           // Read existing commands if file exists
           if (fs.existsSync(configPath)) {
             const content = fs.readFileSync(configPath, 'utf8');
             commands = JSON.parse(content);
-            
-            // Check if command already exists
+
+            // Check if commands already exist
             if (commands.find(cmd => cmd.name === 'note')) {
-              console.log(`  ${colors.gray}✓ /note command already configured${colors.reset}`);
+              console.log(`  ${colors.gray}✓ Note commands already configured${colors.reset}`);
               configured = true;
               continue;
             }
           }
-          
-          // Add our command
-          commands.push(noteCommand);
-          
+
+          // Add our commands
+          commands.push(...noteCommands);
+
           // Write back
           fs.writeFileSync(configPath, JSON.stringify(commands, null, 2));
-          console.log(`  ${colors.green}✓ Added /note command to Claude${colors.reset}`);
+          console.log(`  ${colors.green}✓ Added note commands to Claude (${noteCommands.length} commands)${colors.reset}`);
           configured = true;
           break;
         } catch (error) {
@@ -127,9 +157,9 @@ alias n='notes-cli'
         }
       }
     }
-    
+
     if (!configured) {
-      console.log(`  ${colors.yellow}ℹ Claude config not found. You can manually add the /note command later.${colors.reset}`);
+      console.log(`  ${colors.yellow}ℹ Claude config not found. You can manually add the commands later.${colors.reset}`);
     }
   }
 
@@ -138,11 +168,21 @@ alias n='notes-cli'
    */
   showCodexInfo() {
     console.log(`\n${colors.cyan}Codex CLI Integration:${colors.reset}`);
-    console.log(`  ${colors.gray}Codex CLI can use the shell aliases directly.${colors.reset}`);
-    console.log(`  ${colors.gray}In Codex, you can say:${colors.reset}`);
-    console.log(`    • "note 'Title' 'Content'" - uses the alias`);
-    console.log(`    • "create a note about X" - natural language`);
-    console.log(`    • "n 'Quick note'" - uses short alias`);
+    console.log(`  ${colors.gray}Codex CLI can use the shell aliases and full commands:${colors.reset}`);
+    console.log(`\n  ${colors.yellow}Notes:${colors.reset}`);
+    console.log(`    • "notes-cli notes list" - list all notes`);
+    console.log(`    • "notes-cli note create 'Title' 'Content' @Folder" - create note`);
+    console.log(`    • "notes-cli note <id>" - show note content`);
+    console.log(`    • "notes-cli note edit <id> --title 'New'" - edit note`);
+    console.log(`    • "notes-cli note delete <id>" - delete note`);
+    console.log(`\n  ${colors.yellow}Folders:${colors.reset}`);
+    console.log(`    • "notes-cli folders list" - list folders`);
+    console.log(`    • "notes-cli folder create 'Name'" - create folder`);
+    console.log(`    • "notes-cli folder delete 'Name'" - delete folder`);
+    console.log(`\n  ${colors.yellow}Natural language:${colors.reset}`);
+    console.log(`    • "create a note about X"`);
+    console.log(`    • "list my Apple Notes"`);
+    console.log(`    • "delete the note about Y"`);
   }
 
   /**
@@ -169,30 +209,30 @@ alias n='notes-cli'
     console.log(`${colors.cyan}🔧 Apple Notes CLI - Integration Setup${colors.reset}`);
     console.log(`\n${colors.yellow}This script will modify your shell configuration files.${colors.reset}`);
     console.log(`It will add aliases for easier access to the notes CLI.\n`);
-    
+
     // Ask for confirmation
     const confirmed = await this.askConfirmation('Do you want to proceed with the setup?');
-    
+
     if (!confirmed) {
       console.log(`\n${colors.gray}Setup cancelled. You can run 'npm run setup' later if needed.${colors.reset}`);
       process.exit(0);
     }
-    
+
     // Setup shell aliases with confirmation
     const setupAliases = await this.askConfirmation('\nAdd shell aliases (note, n)?');
     if (setupAliases) {
       this.setupShellAliases();
     }
-    
+
     // Setup Claude commands with confirmation
     const setupClaude = await this.askConfirmation('\nSetup Claude Code integration?');
     if (setupClaude) {
       this.setupClaudeCommands();
     }
-    
+
     // Show Codex info
     this.showCodexInfo();
-    
+
     if (setupAliases || setupClaude) {
       console.log(`\n${colors.green}✅ Setup complete!${colors.reset}`);
       console.log(`\n${colors.gray}You can now use:${colors.reset}`);
