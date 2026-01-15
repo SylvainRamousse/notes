@@ -157,6 +157,50 @@ notes-cli folder delete "Work"
 DEBUG=true notes-cli notes list
 ```
 
+## MCP Server
+
+An MCP (Model Context Protocol) server is included for direct LLM integration.
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `notes_list` | List all notes |
+| `folders_list` | List all folders |
+| `folder_create` | Create a folder |
+| `folder_delete` | Delete a folder |
+| `note_show` | Show note content |
+| `note_create` | Create a note |
+| `note_edit` | Edit a note |
+| `note_delete` | Delete a note |
+
+### Claude Desktop Integration
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "apple-notes": {
+      "command": "node",
+      "args": ["/path/to/notes/mcp-server.js"]
+    }
+  }
+}
+```
+
+Or if installed globally via npm:
+
+```json
+{
+  "mcpServers": {
+    "apple-notes": {
+      "command": "notes-mcp"
+    }
+  }
+}
+```
+
 ## License
 
 MIT

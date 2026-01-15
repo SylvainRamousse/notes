@@ -5,14 +5,16 @@
   "main": "notes-core.js",
   "bin": {
     "apple-notes": "./notes-cli.js",
-    "notes-cli": "./notes-cli.js"
+    "notes-cli": "./notes-cli.js",
+    "notes-mcp": "./mcp-server.js"
   },
   "scripts": {
     "test": "node test-comprehensive.js",
     "start": "./notes-cli.js --help",
     "lint": "eslint .",
     "check": "npm run lint && npm test",
-    "setup": "node scripts/setup-integrations.js"
+    "setup": "node scripts/setup-integrations.js",
+    "mcp": "node mcp-server.js"
   },
   "keywords": [
     "apple",
@@ -21,7 +23,8 @@
     "macos",
     "productivity",
     "markdown",
-    "applescript"
+    "applescript",
+    "mcp"
   ],
   "author": "Marcus Volkel",
   "license": "MIT",
@@ -42,6 +45,7 @@
   "files": [
     "notes-cli.js",
     "notes-core.js",
+    "mcp-server.js",
     "scripts/setup-integrations.js",
     "README.md",
     "LICENSE",
@@ -51,5 +55,9 @@
     "eslint": "^9.11.0",
     "globals": "^15.9.0",
     "prettier": "^3.3.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "zod": "^4.3.5"
   }
 }
