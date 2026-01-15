@@ -38,6 +38,7 @@ ${colors.cyan}Apple Notes CLI${colors.reset} v${packageJson.version}
 ${colors.yellow}Usage:${colors.reset}
   notes-cli <title> [body]     Create a new note
   notes-cli list [--limit N]   List notes (default limit: 20)
+  notes-cli show <note-id>     Show note content in markdown
   notes-cli --version          Show version
   notes-cli --update           Check for updates
   notes-cli --help             Show this help
@@ -152,9 +153,38 @@ What would you like me to save to your Notes?
       notes.forEach((note, index) => {
         const num = String(index + 1).padStart(2, ' ');
         console.log(`${colors.gray}${num}.${colors.reset} ${colors.green}${note.name}${colors.reset}`);
+        console.log(`    ${colors.gray}Folder: ${note.folder}${colors.reset}`);
+        console.log(`    ${colors.gray}ID: ${note.id}${colors.reset}`);
         console.log(`    ${colors.gray}Modified: ${note.modificationDate}${colors.reset}`);
       });
 
+      console.log('');
+    } catch (error) {
+      console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
+      if (process.env.DEBUG === 'true') {
+        console.error(colors.gray, error.stack, colors.reset);
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Show a note's content
+   */
+  async showNote(noteId) {
+    try {
+      if (!noteId) {
+        console.error(`${colors.red}Error: Note ID required${colors.reset}`);
+        console.log(`\nUsage: notes-cli show <note-id>`);
+        console.log(`\nTip: Use 'notes-cli list' to see note IDs`);
+        process.exit(1);
+      }
+
+      const note = await this.core.show(noteId);
+      const markdown = this.core.convertHTMLToMarkdown(note.body);
+
+      console.log(`\n${colors.cyan}# ${note.name}${colors.reset}\n`);
+      console.log(markdown);
       console.log('');
     } catch (error) {
       console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
@@ -229,6 +259,13 @@ async function main() {
       limit = parseInt(args[limitIndex + 1], 10) || 20;
     }
     await cli.listNotes({ limit });
+    process.exit(0);
+  }
+
+  // Show command
+  if (command === 'show' || command === '--show' || command === '-s') {
+    const noteId = args[1];
+    await cli.showNote(noteId);
     process.exit(0);
   }
 

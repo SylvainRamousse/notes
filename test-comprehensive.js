@@ -45,10 +45,10 @@ async function testCLI(args, expectedToWork = true) {
     const proc = spawn('node', ['notes-cli.js', ...args]);
     let stdout = '';
     let stderr = '';
-    
+
     proc.stdout.on('data', data => stdout += data);
     proc.stderr.on('data', data => stderr += data);
-    
+
     proc.on('close', code => {
       if (expectedToWork && code !== 0) {
         reject(new Error(`CLI failed: ${stderr || stdout}`));
@@ -66,7 +66,7 @@ async function testCLI(args, expectedToWork = true) {
  */
 async function testAppleScriptEscaping() {
   const core = new NotesCore();
-  
+
   // Test basic escaping
   const tests = [
     { input: 'Hello "World"', desc: 'double quotes' },
@@ -82,7 +82,7 @@ async function testAppleScriptEscaping() {
     { input: '日本語テスト', desc: 'Japanese characters' },
     { input: 'Кириллица тест', desc: 'Cyrillic characters' }
   ];
-  
+
   for (const t of tests) {
     const escaped = core.escapeForAppleScript(t.input);
     if (!escaped || escaped.length === 0) {
@@ -100,50 +100,50 @@ async function testAppleScriptEscaping() {
  */
 async function testHTMLConversion() {
   const core = new NotesCore();
-  
+
   const tests = [
-    { 
-      input: '# Heading 1', 
+    {
+      input: '# Heading 1',
       shouldContain: '<h1',
-      desc: 'H1 heading' 
+      desc: 'H1 heading'
     },
-    { 
-      input: '## Heading 2', 
+    {
+      input: '## Heading 2',
       shouldContain: '<h2',
-      desc: 'H2 heading' 
+      desc: 'H2 heading'
     },
-    { 
-      input: '**bold text**', 
+    {
+      input: '**bold text**',
       shouldContain: '<strong>bold text</strong>',
-      desc: 'bold text' 
+      desc: 'bold text'
     },
-    { 
-      input: '*italic text*', 
+    {
+      input: '*italic text*',
       shouldContain: '<em>italic text</em>',
-      desc: 'italic text' 
+      desc: 'italic text'
     },
-    { 
-      input: '`code`', 
+    {
+      input: '`code`',
       shouldContain: '<code',
-      desc: 'inline code' 
+      desc: 'inline code'
     },
-    { 
-      input: '- Item 1\n- Item 2', 
+    {
+      input: '- Item 1\n- Item 2',
       shouldContain: '<ul',
-      desc: 'bullet list' 
+      desc: 'bullet list'
     },
-    { 
-      input: '1. First\n2. Second', 
+    {
+      input: '1. First\n2. Second',
       shouldContain: '<ol',
-      desc: 'numbered list' 
+      desc: 'numbered list'
     },
-    { 
-      input: '<script>alert("xss")</script>', 
+    {
+      input: '<script>alert("xss")</script>',
       shouldNotContain: '<script',
-      desc: 'XSS prevention' 
+      desc: 'XSS prevention'
     }
   ];
-  
+
   for (const t of tests) {
     const html = core.convertToHTML(t.input);
     if (t.shouldContain && !html.includes(t.shouldContain)) {
@@ -160,11 +160,11 @@ async function testHTMLConversion() {
  */
 async function testInputValidation() {
   const core = new NotesCore();
-  
+
   // Valid inputs
   core.validateInput('Valid Title', 'title');
   core.validateInput('Valid Body Text', 'text');
-  
+
   // Invalid inputs
   try {
     core.validateInput('   ', 'title');  // Only whitespace
@@ -174,7 +174,7 @@ async function testInputValidation() {
       throw e;
     }
   }
-  
+
   try {
     core.validateInput('a'.repeat(256), 'title');
     throw new Error('Should reject too long title');
@@ -183,7 +183,7 @@ async function testInputValidation() {
       throw e;
     }
   }
-  
+
   try {
     core.validateInput(null, 'title');
     throw new Error('Should reject null input');
@@ -200,10 +200,10 @@ async function testInputValidation() {
 async function testCLIArguments() {
   // Test help
   await testCLI(['--help']);
-  
+
   // Test version
   await testCLI(['--version']);
-  
+
   // Test with no arguments (should show help)
   await testCLI([]);
 }
@@ -213,7 +213,7 @@ async function testCLIArguments() {
  */
 async function testActualNoteCreation() {
   const core = new NotesCore({ debug: false });
-  
+
   const testCases = [
     {
       title: 'Test Note Simple',
@@ -241,7 +241,7 @@ async function testActualNoteCreation() {
       desc: 'code block'
     }
   ];
-  
+
   for (const tc of testCases) {
     try {
       const result = await core.create(tc.title, tc.body);
@@ -250,9 +250,9 @@ async function testActualNoteCreation() {
       }
     } catch (error) {
       // Check if it's a permission/Notes app issue
-      if (error.message.includes('keine Berechtigung') || 
-          error.message.includes('permission') ||
-          error.message.includes('access')) {
+      if (error.message.includes('keine Berechtigung') ||
+        error.message.includes('permission') ||
+        error.message.includes('access')) {
         console.log(`${colors.yellow}  (Skipped - Notes permission required)${colors.reset}`);
       } else {
         throw error;
@@ -266,7 +266,7 @@ async function testActualNoteCreation() {
  */
 async function testSecurity() {
   const core = new NotesCore();
-  
+
   // Test XSS prevention
   const xssAttempts = [
     '<script>alert("XSS")</script>',
@@ -275,31 +275,31 @@ async function testSecurity() {
     '<iframe src="evil.com"></iframe>',
     '<form action="evil.com"><input name="password"></form>'
   ];
-  
+
   for (const xss of xssAttempts) {
     const safe = core.sanitizeHTML(xss);
-    if (safe.includes('<script') || safe.includes('onerror') || 
-        safe.includes('javascript:') || safe.includes('<iframe') ||
-        safe.includes('<form')) {
+    if (safe.includes('<script') || safe.includes('onerror') ||
+      safe.includes('javascript:') || safe.includes('<iframe') ||
+      safe.includes('<form')) {
       throw new Error(`Security: XSS not prevented for: ${xss}`);
     }
   }
-  
+
   // Test command injection prevention in AppleScript
   const injectionAttempts = [
     'Title" } end tell\ntell application "System Events" to delete file',
     'Test tell application "Finder" to delete',
     'end tell } malicious code'
   ];
-  
+
   for (const injection of injectionAttempts) {
     const safe = core.escapeForAppleScript(injection);
-    
+
     // Check that 'tell' commands are removed/neutralized
     if (safe.toLowerCase().includes('tell')) {
       throw new Error(`Security: 'tell' command not removed from: ${safe}`);
     }
-    
+
     // The escapeForAppleScript should neutralize injection attempts
     // Just verify the result doesn't contain dangerous patterns
     if (safe.includes('} ')) {
@@ -310,29 +310,191 @@ async function testSecurity() {
 }
 
 /**
+ * Test HTML to Markdown conversion
+ */
+async function testHTMLToMarkdownConversion() {
+  const core = new NotesCore();
+
+  const tests = [
+    {
+      input: '<h1>Heading 1</h1>',
+      shouldContain: '# Heading 1',
+      desc: 'H1 heading'
+    },
+    {
+      input: '<h2>Heading 2</h2>',
+      shouldContain: '## Heading 2',
+      desc: 'H2 heading'
+    },
+    {
+      input: '<h3>Heading 3</h3>',
+      shouldContain: '### Heading 3',
+      desc: 'H3 heading'
+    },
+    {
+      input: '<strong>bold text</strong>',
+      shouldContain: '**bold text**',
+      desc: 'bold text'
+    },
+    {
+      input: '<b>bold text</b>',
+      shouldContain: '**bold text**',
+      desc: 'bold with b tag'
+    },
+    {
+      input: '<em>italic text</em>',
+      shouldContain: '*italic text*',
+      desc: 'italic text'
+    },
+    {
+      input: '<i>italic text</i>',
+      shouldContain: '*italic text*',
+      desc: 'italic with i tag'
+    },
+    {
+      input: '<code>inline code</code>',
+      shouldContain: '`inline code`',
+      desc: 'inline code'
+    },
+    {
+      input: '<ul><li>Item 1</li><li>Item 2</li></ul>',
+      shouldContain: '- Item 1',
+      desc: 'unordered list'
+    },
+    {
+      input: '<a href="https://example.com">link text</a>',
+      shouldContain: '[link text](https://example.com)',
+      desc: 'link'
+    },
+    {
+      input: 'Line 1<br>Line 2',
+      shouldContain: 'Line 1\nLine 2',
+      desc: 'line break'
+    },
+    {
+      input: '<hr>',
+      shouldContain: '---',
+      desc: 'horizontal rule'
+    },
+    {
+      input: '<p>paragraph text</p>',
+      shouldContain: 'paragraph text',
+      desc: 'paragraph'
+    },
+    {
+      input: '&amp; &lt; &gt; &quot;',
+      shouldContain: '& < > "',
+      desc: 'HTML entities'
+    }
+  ];
+
+  for (const t of tests) {
+    const markdown = core.convertHTMLToMarkdown(t.input);
+    if (!markdown.includes(t.shouldContain)) {
+      throw new Error(`HTML to Markdown conversion failed for ${t.desc}: expected "${t.shouldContain}" but got "${markdown}"`);
+    }
+  }
+
+  // Test empty input
+  const emptyResult = core.convertHTMLToMarkdown('');
+  if (emptyResult !== '') {
+    throw new Error('HTML to Markdown conversion should return empty string for empty input');
+  }
+
+  // Test null-ish input
+  const nullResult = core.convertHTMLToMarkdown(null);
+  if (nullResult !== '') {
+    throw new Error('HTML to Markdown conversion should return empty string for null input');
+  }
+}
+
+/**
+ * Test show note functionality
+ */
+async function testShowNote() {
+  const core = new NotesCore({ debug: false });
+
+  // Test invalid input validation
+  try {
+    await core.show(null);
+    throw new Error('Should reject null note ID');
+  } catch (e) {
+    if (!e.message.includes('Invalid note ID')) {
+      throw e;
+    }
+  }
+
+  try {
+    await core.show('');
+    throw new Error('Should reject empty note ID');
+  } catch (e) {
+    if (!e.message.includes('Invalid note ID')) {
+      throw e;
+    }
+  }
+
+  try {
+    await core.show(123);
+    throw new Error('Should reject non-string note ID');
+  } catch (e) {
+    if (!e.message.includes('Invalid note ID')) {
+      throw e;
+    }
+  }
+
+  // Test with invalid note ID (should throw "not found" error)
+  try {
+    await core.show('x-coredata://INVALID-NOTE-ID-12345');
+    // If we get here without error and Notes app has the note, that's fine
+    // Otherwise it should throw a not found error
+  } catch (e) {
+    // This is expected - note doesn't exist
+    if (!e.message.toLowerCase().includes('not found') &&
+      !e.message.toLowerCase().includes('error') &&
+      !e.message.toLowerCase().includes('permission')) {
+      throw new Error(`Unexpected error type: ${e.message}`);
+    }
+  }
+}
+
+/**
+ * Test CLI show command
+ */
+async function testCLIShowCommand() {
+  // Test show command with no ID (should fail gracefully)
+  const result = await testCLI(['show'], false);
+  if (!result.stderr.includes('Note ID required') && !result.stdout.includes('Note ID required')) {
+    throw new Error('CLI show without ID should show error message');
+  }
+}
+
+/**
  * Main test runner
  */
 async function runTests() {
   console.log(`${colors.cyan}🧪 Running Comprehensive Tests${colors.reset}\n`);
-  
+
   // Core functionality tests
   await test('AppleScript escaping', testAppleScriptEscaping);
   await test('HTML conversion', testHTMLConversion);
+  await test('HTML to Markdown conversion', testHTMLToMarkdownConversion);
   await test('Input validation', testInputValidation);
   await test('Security features', testSecurity);
-  
+
   // CLI tests
   await test('CLI arguments', testCLIArguments);
-  
+  await test('CLI show command', testCLIShowCommand);
+
   // Integration tests (may require Notes app permission)
   console.log(`\n${colors.cyan}Integration Tests:${colors.reset}`);
   await test('Actual note creation', testActualNoteCreation);
-  
+  await test('Show note validation', testShowNote);
+
   // Summary
   console.log(`\n${colors.cyan}Test Results:${colors.reset}`);
   console.log(`  ${colors.green}Passed: ${passedTests}${colors.reset}`);
   console.log(`  ${colors.red}Failed: ${failedTests}${colors.reset}`);
-  
+
   if (failedTests > 0) {
     console.log(`\n${colors.red}❌ Tests failed!${colors.reset}`);
     process.exit(1);
