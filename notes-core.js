@@ -257,6 +257,61 @@ class NotesCore {
   }
 
   /**
+   * Delete a note by ID
+   * @param {string} noteId - The ID of the note to delete
+   * @returns {string} Success message
+   */
+  async deleteNote(noteId) {
+    if (!noteId || typeof noteId !== 'string') {
+      throw new Error('Invalid note ID');
+    }
+
+    const escapedId = this.escapeForAppleScript(noteId);
+
+    const script = `
+      tell application "Notes"
+        try
+          set theNote to note id "${escapedId}"
+          set noteName to name of theNote
+          delete theNote
+          return "Note deleted: " & noteName
+        on error errMsg
+          error "Note not found: " & errMsg
+        end try
+      end tell
+    `;
+
+    return await this.executeAppleScript(script);
+  }
+
+  /**
+   * Delete a folder by name
+   * @param {string} folderName - The name of the folder to delete
+   * @returns {string} Success message
+   */
+  async deleteFolder(folderName) {
+    if (!folderName || typeof folderName !== 'string') {
+      throw new Error('Invalid folder name');
+    }
+
+    const escapedName = this.escapeForAppleScript(folderName);
+
+    const script = `
+      tell application "Notes"
+        try
+          set targetFolder to folder "${escapedName}"
+          delete targetFolder
+          return "Folder deleted: ${escapedName}"
+        on error errMsg
+          error "Folder not found: " & errMsg
+        end try
+      end tell
+    `;
+
+    return await this.executeAppleScript(script);
+  }
+
+  /**
    * List all notes from Apple Notes
    * @param {Object} options - Options for listing notes
    * @param {number} options.limit - Maximum number of notes to return (default: 50)
@@ -342,6 +397,54 @@ class NotesCore {
       name: name?.trim() || '',
       body: body?.trim() || ''
     };
+  }
+
+  /**
+   * Update an existing note
+   * @param {string} noteId - The ID of the note to update
+   * @param {Object} updates - The updates to apply
+   * @param {string} updates.title - New title (optional)
+   * @param {string} updates.body - New body content (optional, supports markdown)
+   * @returns {string} Success message
+   */
+  async update(noteId, updates = {}) {
+    if (!noteId || typeof noteId !== 'string') {
+      throw new Error('Invalid note ID');
+    }
+
+    if (!updates.title && !updates.body) {
+      throw new Error('No updates provided. Specify title or body to update.');
+    }
+
+    const escapedId = this.escapeForAppleScript(noteId);
+
+    let scriptParts = [];
+
+    if (updates.title) {
+      const validTitle = this.validateInput(updates.title, 'title');
+      const escapedTitle = this.escapeForAppleScript(validTitle);
+      scriptParts.push(`set name of theNote to "${escapedTitle}"`);
+    }
+
+    if (updates.body) {
+      const htmlBody = this.convertToHTML(updates.body);
+      const escapedBody = this.escapeForAppleScript(htmlBody);
+      scriptParts.push(`set body of theNote to "${escapedBody}"`);
+    }
+
+    const script = `
+      tell application "Notes"
+        try
+          set theNote to note id "${escapedId}"
+          ${scriptParts.join('\n          ')}
+          return "Note updated: " & name of theNote
+        on error errMsg
+          error "Note not found or update failed: " & errMsg
+        end try
+      end tell
+    `;
+
+    return await this.executeAppleScript(script);
   }
 
   /**

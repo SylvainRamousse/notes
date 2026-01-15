@@ -39,18 +39,28 @@ ${colors.yellow}Usage:${colors.reset}
   notes-cli notes list [--limit N]          List all notes (default limit: 20)
   notes-cli folders list                    List all folders
   notes-cli folder create <name>            Create a new folder
+  notes-cli folder delete <name>            Delete a folder
   notes-cli note <note-id>                  Show note content in markdown
   notes-cli note create <title> [body] [@F] Create a new note (optionally in folder F)
+  notes-cli note edit <note-id> [options]   Edit an existing note
+  notes-cli note delete <note-id>           Delete a note
   notes-cli --version                       Show version
   notes-cli --update                        Check for updates
   notes-cli --help                          Show this help
+
+${colors.yellow}Edit Options:${colors.reset}
+  --title "New Title"    Update the note title
+  --body "New content"   Update the note body
 
 ${colors.yellow}Examples:${colors.reset}
   notes-cli notes list --limit 10
   notes-cli folders list
   notes-cli folder create "Work"
+  notes-cli folder delete "Work"
   notes-cli note create "My Note" "Some content here"
   notes-cli note create "Work Task" "Details here" @Work
+  notes-cli note edit <note-id> --title "New Title"
+  notes-cli note delete <note-id>
   
 ${colors.yellow}AI Assistant Integration:${colors.reset}
   Say any of these to your AI assistant:
@@ -224,6 +234,50 @@ What would you like me to save to your Notes?
   }
 
   /**
+   * Delete a folder
+   */
+  async deleteFolderCLI(name) {
+    try {
+      if (!name) {
+        console.error(`${colors.red}Error: Folder name required${colors.reset}`);
+        console.log(`\nUsage: notes-cli folder delete <name>`);
+        process.exit(1);
+      }
+
+      const result = await this.core.deleteFolder(name);
+      console.log(`${colors.green}✓${colors.reset} ${result}`);
+    } catch (error) {
+      console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
+      if (process.env.DEBUG === 'true') {
+        console.error(colors.gray, error.stack, colors.reset);
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Delete a note
+   */
+  async deleteNoteCLI(noteId) {
+    try {
+      if (!noteId) {
+        console.error(`${colors.red}Error: Note ID required${colors.reset}`);
+        console.log(`\nUsage: notes-cli note delete <note-id>`);
+        process.exit(1);
+      }
+
+      const result = await this.core.deleteNote(noteId);
+      console.log(`${colors.green}✓${colors.reset} ${result}`);
+    } catch (error) {
+      console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
+      if (process.env.DEBUG === 'true') {
+        console.error(colors.gray, error.stack, colors.reset);
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
    * Show a note's content
    */
   async showNote(noteId) {
@@ -262,6 +316,34 @@ What would you like me to save to your Notes?
       }
 
       const result = await this.core.create(title, body, options);
+      console.log(`${colors.green}✓${colors.reset} ${result}`);
+    } catch (error) {
+      console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
+      if (process.env.DEBUG === 'true') {
+        console.error(colors.gray, error.stack, colors.reset);
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Edit a note
+   */
+  async editNote(noteId, options = {}) {
+    try {
+      if (!noteId) {
+        console.error(`${colors.red}Error: Note ID required${colors.reset}`);
+        console.log(`\nUsage: notes-cli note edit <note-id> [--title "Title"] [--body "Content"]`);
+        process.exit(1);
+      }
+
+      if (!options.title && !options.body) {
+        console.error(`${colors.red}Error: Specify --title or --body to update${colors.reset}`);
+        console.log(`\nUsage: notes-cli note edit <note-id> [--title "Title"] [--body "Content"]`);
+        process.exit(1);
+      }
+
+      const result = await this.core.update(noteId, options);
       console.log(`${colors.green}✓${colors.reset} ${result}`);
     } catch (error) {
       console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
@@ -331,8 +413,16 @@ async function main() {
     process.exit(0);
   }
 
+  // folder delete <name>
+  if (command === 'folder' && subCommand === 'delete') {
+    const folderName = args[2];
+    await cli.deleteFolderCLI(folderName);
+    process.exit(0);
+  }
+
   // note <note-id> (show note content)
   // note create <title> [body] [@Folder]
+  // note edit <note-id> [--title "..."] [--body "..."]
   if (command === 'note') {
     if (subCommand === 'create') {
       // Parse @Folder syntax - find argument starting with @
@@ -356,6 +446,27 @@ async function main() {
         process.exit(1);
       }
       await cli.createNote(title, body, { folder });
+      process.exit(0);
+    } else if (subCommand === 'edit') {
+      const noteId = args[2];
+
+      // Parse --title and --body options
+      const titleIndex = args.indexOf('--title');
+      const bodyIndex = args.indexOf('--body');
+
+      const options = {};
+      if (titleIndex !== -1 && args[titleIndex + 1]) {
+        options.title = args[titleIndex + 1];
+      }
+      if (bodyIndex !== -1 && args[bodyIndex + 1]) {
+        options.body = args[bodyIndex + 1];
+      }
+
+      await cli.editNote(noteId, options);
+      process.exit(0);
+    } else if (subCommand === 'delete') {
+      const noteId = args[2];
+      await cli.deleteNoteCLI(noteId);
       process.exit(0);
     } else if (subCommand) {
       // subCommand is the note ID

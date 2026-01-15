@@ -12,6 +12,8 @@ CLI tool for managing notes in Apple Notes on macOS.
 - **Create notes** with Markdown support
 - **Create notes in specific folders** using `@FolderName` syntax
 - **View note content** in Markdown format
+- **Edit notes** - update title or body
+- **Delete notes and folders**
 
 ## Requirements
 
@@ -59,6 +61,9 @@ notes-cli folders list
 # Create a new folder
 notes-cli folder create "Work"
 
+# Delete a folder
+notes-cli folder delete "Work"
+
 # Create a new note
 notes-cli note create "Title" "Content with **markdown**"
 
@@ -67,6 +72,14 @@ notes-cli note create "Task" "Details here" @Work
 
 # Show note content in markdown
 notes-cli note <note-id>
+
+# Edit a note
+notes-cli note edit <note-id> --title "New Title"
+notes-cli note edit <note-id> --body "New content"
+notes-cli note edit <note-id> --title "Title" --body "Content"
+
+# Delete a note
+notes-cli note delete <note-id>
 
 # Show version
 notes-cli --version
@@ -128,8 +141,14 @@ notes-cli folder create "Work"
 # Create a meeting note in Work folder
 notes-cli note create "Team Meeting" "## Agenda\n- Updates\n- Planning" @Work
 
-# View a specific note (use ID from list)
-notes-cli note "x-coredata://..."
+# Edit a note's title
+notes-cli note edit <note-id> --title "Updated Meeting Notes"
+
+# Delete a note
+notes-cli note delete <note-id>
+
+# Delete a folder
+notes-cli folder delete "Work"
 ```
 
 ## Debug
