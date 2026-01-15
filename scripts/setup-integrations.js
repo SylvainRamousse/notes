@@ -73,93 +73,105 @@ alias n='notes-cli'
 
   /**
    * Setup Claude Code Slash Commands
+   * Claude Code uses Markdown files in ~/.claude/commands/ directory
    */
   setupClaudeCommands() {
     console.log(`\n${colors.cyan}Setting up Claude Code slash commands...${colors.reset}`);
 
-    // Possible Claude config locations
-    const claudeConfigPaths = [
-      path.join(this.homeDir, '.claude', 'commands.json'),
-      path.join(this.homeDir, '.config', 'claude', 'commands.json'),
-      path.join(this.homeDir, 'Library', 'Application Support', 'Claude', 'commands.json')
-    ];
+    const claudeCommandsDir = path.join(this.homeDir, '.claude', 'commands');
 
-    const noteCommands = [
-      {
-        name: 'note',
-        description: 'Create a new Apple Note',
-        command: 'notes-cli',
-        args: ['note', 'create', '$1', '$2'],
-        example: '/note "Meeting Notes" "## Agenda\\n- Item 1\\n- Item 2"'
-      },
-      {
-        name: 'note-list',
-        description: 'List all Apple Notes',
-        command: 'notes-cli',
-        args: ['notes', 'list', '--limit', '20'],
-        example: '/note-list'
-      },
-      {
-        name: 'folders',
-        description: 'List all Apple Notes folders',
-        command: 'notes-cli',
-        args: ['folders', 'list'],
-        example: '/folders'
-      },
-      {
-        name: 'note-show',
-        description: 'Show content of an Apple Note',
-        command: 'notes-cli',
-        args: ['note', '$1'],
-        example: '/note-show <note-id>'
-      },
-      {
-        name: 'folder-create',
-        description: 'Create a new folder in Apple Notes',
-        command: 'notes-cli',
-        args: ['folder', 'create', '$1'],
-        example: '/folder-create "Work"'
+    // Define commands as Markdown files with notecli- prefix
+    const commands = {
+      'notecli-notes-list': `List all Apple Notes with folder info.
+
+Run: notes-cli notes list --limit 20`,
+
+      'notecli-note-create': `Create a new Apple Note.
+
+Arguments:
+- $1: Title of the note
+- $2: Content (supports markdown)
+- Optional: @FolderName to specify folder
+
+Run: notes-cli note create "$1" "$2"
+
+Example: /notecli-note-create "Meeting Notes" "## Agenda\\n- Item 1"`,
+
+      'notecli-note-show': `Show content of an Apple Note.
+
+Arguments:
+- $1: Note ID (get from /notecli-notes-list)
+
+Run: notes-cli note "$1"`,
+
+      'notecli-note-edit': `Edit an existing Apple Note.
+
+Arguments:
+- $1: Note ID
+- $2: New title (optional)
+- $3: New body (optional)
+
+Run: notes-cli note edit "$1" --title "$2" --body "$3"`,
+
+      'notecli-note-delete': `Delete an Apple Note.
+
+Arguments:
+- $1: Note ID
+
+Run: notes-cli note delete "$1"`,
+
+      'notecli-folders-list': `List all Apple Notes folders.
+
+Run: notes-cli folders list`,
+
+      'notecli-folder-create': `Create a new folder in Apple Notes.
+
+Arguments:
+- $1: Folder name
+
+Run: notes-cli folder create "$1"`,
+
+      'notecli-folder-delete': `Delete a folder in Apple Notes.
+
+Arguments:
+- $1: Folder name
+
+Run: notes-cli folder delete "$1"`
+    };
+
+    try {
+      // Create commands directory if it doesn't exist
+      if (!fs.existsSync(claudeCommandsDir)) {
+        fs.mkdirSync(claudeCommandsDir, { recursive: true });
+        console.log(`  ${colors.green}✓ Created ${claudeCommandsDir}${colors.reset}`);
       }
-    ];
 
-    let configured = false;
+      let createdCount = 0;
+      let existingCount = 0;
 
-    for (const configPath of claudeConfigPaths) {
-      const configDir = path.dirname(configPath);
+      for (const [name, content] of Object.entries(commands)) {
+        const filePath = path.join(claudeCommandsDir, `${name}.md`);
 
-      if (fs.existsSync(configDir)) {
-        try {
-          let commands = [];
-
-          // Read existing commands if file exists
-          if (fs.existsSync(configPath)) {
-            const content = fs.readFileSync(configPath, 'utf8');
-            commands = JSON.parse(content);
-
-            // Check if commands already exist
-            if (commands.find(cmd => cmd.name === 'note')) {
-              console.log(`  ${colors.gray}✓ Note commands already configured${colors.reset}`);
-              configured = true;
-              continue;
-            }
-          }
-
-          // Add our commands
-          commands.push(...noteCommands);
-
-          // Write back
-          fs.writeFileSync(configPath, JSON.stringify(commands, null, 2));
-          console.log(`  ${colors.green}✓ Added note commands to Claude (${noteCommands.length} commands)${colors.reset}`);
-          configured = true;
-          break;
-        } catch (error) {
-          console.log(`  ${colors.gray}Could not configure ${configPath}${colors.reset}`);
+        if (fs.existsSync(filePath)) {
+          existingCount++;
+          continue;
         }
-      }
-    }
 
-    if (!configured) {
-      console.log(`  ${colors.yellow}ℹ Claude config not found. You can manually add the commands later.${colors.reset}`);
+        fs.writeFileSync(filePath, content);
+        createdCount++;
+      }
+
+      if (createdCount > 0) {
+        console.log(`  ${colors.green}✓ Created ${createdCount} slash commands${colors.reset}`);
+      }
+      if (existingCount > 0) {
+        console.log(`  ${colors.gray}✓ ${existingCount} commands already exist${colors.reset}`);
+      }
+
+      console.log(`  ${colors.gray}Commands: /notecli-notes-list, /notecli-note-create, /notecli-folder-create, etc.${colors.reset}`);
+
+    } catch (error) {
+      console.log(`  ${colors.yellow}⚠ Could not setup Claude commands: ${error.message}${colors.reset}`);
     }
   }
 
@@ -168,21 +180,17 @@ alias n='notes-cli'
    */
   showCodexInfo() {
     console.log(`\n${colors.cyan}Codex CLI Integration:${colors.reset}`);
-    console.log(`  ${colors.gray}Codex CLI can use the shell aliases and full commands:${colors.reset}`);
+    console.log(`  ${colors.gray}Codex CLI can use the full commands directly:${colors.reset}`);
     console.log(`\n  ${colors.yellow}Notes:${colors.reset}`);
-    console.log(`    • "notes-cli notes list" - list all notes`);
-    console.log(`    • "notes-cli note create 'Title' 'Content' @Folder" - create note`);
-    console.log(`    • "notes-cli note <id>" - show note content`);
-    console.log(`    • "notes-cli note edit <id> --title 'New'" - edit note`);
-    console.log(`    • "notes-cli note delete <id>" - delete note`);
+    console.log(`    • notes-cli notes list`);
+    console.log(`    • notes-cli note create "Title" "Content" @Folder`);
+    console.log(`    • notes-cli note <id>`);
+    console.log(`    • notes-cli note edit <id> --title "New"`);
+    console.log(`    • notes-cli note delete <id>`);
     console.log(`\n  ${colors.yellow}Folders:${colors.reset}`);
-    console.log(`    • "notes-cli folders list" - list folders`);
-    console.log(`    • "notes-cli folder create 'Name'" - create folder`);
-    console.log(`    • "notes-cli folder delete 'Name'" - delete folder`);
-    console.log(`\n  ${colors.yellow}Natural language:${colors.reset}`);
-    console.log(`    • "create a note about X"`);
-    console.log(`    • "list my Apple Notes"`);
-    console.log(`    • "delete the note about Y"`);
+    console.log(`    • notes-cli folders list`);
+    console.log(`    • notes-cli folder create "Name"`);
+    console.log(`    • notes-cli folder delete "Name"`);
   }
 
   /**
