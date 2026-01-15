@@ -234,6 +234,29 @@ class NotesCore {
   }
 
   /**
+   * Create a new folder in Apple Notes
+   * @param {string} name - The name of the folder to create
+   * @returns {string} Success message
+   */
+  async createFolder(name) {
+    const validName = this.validateInput(name, 'title');
+    const escapedName = this.escapeForAppleScript(validName);
+
+    const script = `
+      tell application "Notes"
+        try
+          make new folder with properties {name:"${escapedName}"}
+          return "Folder created: ${escapedName}"
+        on error errMsg
+          error "Failed to create folder: " & errMsg
+        end try
+      end tell
+    `;
+
+    return await this.executeAppleScript(script);
+  }
+
+  /**
    * List all notes from Apple Notes
    * @param {Object} options - Options for listing notes
    * @param {number} options.limit - Maximum number of notes to return (default: 50)
@@ -404,19 +427,40 @@ class NotesCore {
 
   /**
    * Create a new note
+   * @param {string} title - The title of the note
+   * @param {string} body - The body content (optional, supports markdown)
+   * @param {Object} options - Additional options
+   * @param {string} options.folder - The folder name to create the note in (optional)
    */
-  async create(title, body = '') {
+  async create(title, body = '', options = {}) {
     const validTitle = this.validateInput(title, 'title');
     const escapedTitle = this.escapeForAppleScript(validTitle);
     const htmlBody = body ? this.convertToHTML(body) : '';
     const escapedBody = this.escapeForAppleScript(htmlBody);
 
-    const script = `
-      tell application "Notes"
-        make new note with properties {name:"${escapedTitle}", body:"${escapedBody}"}
-        return "Note created: ${escapedTitle}"
-      end tell
-    `;
+    let script;
+
+    if (options.folder) {
+      const escapedFolder = this.escapeForAppleScript(options.folder);
+      script = `
+        tell application "Notes"
+          try
+            set targetFolder to folder "${escapedFolder}"
+            make new note at targetFolder with properties {name:"${escapedTitle}", body:"${escapedBody}"}
+            return "Note created in folder '${escapedFolder}': ${escapedTitle}"
+          on error errMsg
+            error "Folder '${escapedFolder}' not found. Use 'folders list' to see available folders."
+          end try
+        end tell
+      `;
+    } else {
+      script = `
+        tell application "Notes"
+          make new note with properties {name:"${escapedTitle}", body:"${escapedBody}"}
+          return "Note created: ${escapedTitle}"
+        end tell
+      `;
+    }
 
     return await this.executeAppleScript(script);
   }

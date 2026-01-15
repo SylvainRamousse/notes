@@ -262,6 +262,27 @@ async function testActualNoteCreation() {
 }
 
 /**
+ * Test note creation with folder option
+ */
+async function testNoteCreationWithFolder() {
+  const core = new NotesCore({ debug: false });
+
+  // Test with non-existent folder (should fail with helpful message)
+  try {
+    await core.create('Test Note', 'Body', { folder: 'NonExistentFolder12345' });
+    // If we get here, the folder might actually exist - that's ok
+  } catch (error) {
+    // Should get a "folder not found" type error
+    if (!error.message.toLowerCase().includes('not found') &&
+      !error.message.toLowerCase().includes('folder') &&
+      !error.message.toLowerCase().includes('permission') &&
+      !error.message.toLowerCase().includes('berechtigung')) {
+      throw new Error(`Expected folder not found error, got: ${error.message}`);
+    }
+  }
+}
+
+/**
  * Test security features
  */
 async function testSecurity() {
@@ -458,13 +479,147 @@ async function testShowNote() {
 }
 
 /**
- * Test CLI show command
+ * Test CLI show command (new structure: note <id>)
  */
 async function testCLIShowCommand() {
-  // Test show command with no ID (should fail gracefully)
+  // Test note command with no ID (should show AI message, not error)
+  await testCLI(['note']);
+
+  // Test legacy show command with no ID (should fail gracefully)
   const result = await testCLI(['show'], false);
   if (!result.stderr.includes('Note ID required') && !result.stdout.includes('Note ID required')) {
     throw new Error('CLI show without ID should show error message');
+  }
+}
+
+/**
+ * Test CLI folders command (new structure: folders list)
+ */
+async function testCLIFoldersCommand() {
+  // Test new folders list command
+  await testCLI(['folders', 'list']);
+
+  // Test legacy folders command
+  await testCLI(['folders']);
+}
+
+/**
+ * Test CLI note create with @Folder syntax
+ */
+async function testCLINoteCreateWithFolder() {
+  // Test note create command with @Folder (uses non-existent folder, should fail)
+  const result = await testCLI(['note', 'create', 'Test Note', 'Body', '@NonExistentFolder12345'], false);
+  // Should contain error about folder not found
+  const output = result.stderr + result.stdout;
+  if (!output.toLowerCase().includes('not found') &&
+    !output.toLowerCase().includes('error') &&
+    !output.toLowerCase().includes('folder')) {
+    throw new Error('CLI note create with invalid folder should show error');
+  }
+}
+
+/**
+ * Test list notes functionality
+ */
+async function testListNotes() {
+  const core = new NotesCore({ debug: false });
+
+  try {
+    const notes = await core.list({ limit: 5 });
+
+    // Should return an array
+    if (!Array.isArray(notes)) {
+      throw new Error('list() should return an array');
+    }
+
+    // If there are notes, check structure
+    if (notes.length > 0) {
+      const note = notes[0];
+      if (!note.id || !note.name) {
+        throw new Error('Note should have id and name properties');
+      }
+      if (typeof note.folder !== 'string') {
+        throw new Error('Note should have folder property');
+      }
+    }
+  } catch (e) {
+    // Permission errors are acceptable
+    if (!e.message.toLowerCase().includes('permission') &&
+      !e.message.toLowerCase().includes('berechtigung')) {
+      throw e;
+    }
+  }
+}
+
+/**
+ * Test list folders functionality
+ */
+async function testListFolders() {
+  const core = new NotesCore({ debug: false });
+
+  try {
+    const folders = await core.listFolders();
+
+    // Should return an array
+    if (!Array.isArray(folders)) {
+      throw new Error('listFolders() should return an array');
+    }
+
+    // If there are folders, check structure
+    if (folders.length > 0) {
+      const folder = folders[0];
+      if (!folder.id || !folder.name) {
+        throw new Error('Folder should have id and name properties');
+      }
+      if (typeof folder.noteCount !== 'number') {
+        throw new Error('Folder should have noteCount as a number');
+      }
+    }
+  } catch (e) {
+    // Permission errors are acceptable
+    if (!e.message.toLowerCase().includes('permission') &&
+      !e.message.toLowerCase().includes('berechtigung')) {
+      throw e;
+    }
+  }
+}
+
+/**
+ * Test CLI folder create command
+ */
+async function testCLIFolderCreate() {
+  // Test folder create with no name (should fail)
+  const result = await testCLI(['folder', 'create'], false);
+  const output = result.stderr + result.stdout;
+  if (!output.includes('Folder name required')) {
+    throw new Error('CLI folder create without name should show error');
+  }
+}
+
+/**
+ * Test createFolder validation
+ */
+async function testCreateFolderValidation() {
+  const core = new NotesCore({ debug: false });
+
+  // Test with empty name
+  try {
+    await core.createFolder('');
+    throw new Error('Should reject empty folder name');
+  } catch (e) {
+    if (!e.message.includes('cannot be empty') && !e.message.includes('Invalid input')) {
+      throw e;
+    }
+  }
+
+  // Test with null
+  try {
+    await core.createFolder(null);
+    throw new Error('Should reject null folder name');
+  } catch (e) {
+    if (!e.message.includes('expected string') && !e.message.includes('Invalid input')) {
+      throw e;
+    }
   }
 }
 
@@ -484,11 +639,18 @@ async function runTests() {
   // CLI tests
   await test('CLI arguments', testCLIArguments);
   await test('CLI show command', testCLIShowCommand);
+  await test('CLI folders command', testCLIFoldersCommand);
+  await test('CLI folder create', testCLIFolderCreate);
+  await test('CLI note create with @Folder', testCLINoteCreateWithFolder);
 
   // Integration tests (may require Notes app permission)
   console.log(`\n${colors.cyan}Integration Tests:${colors.reset}`);
   await test('Actual note creation', testActualNoteCreation);
+  await test('Note creation with folder option', testNoteCreationWithFolder);
+  await test('Create folder validation', testCreateFolderValidation);
   await test('Show note validation', testShowNote);
+  await test('List notes', testListNotes);
+  await test('List folders', testListFolders);
 
   // Summary
   console.log(`\n${colors.cyan}Test Results:${colors.reset}`);

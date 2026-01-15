@@ -36,19 +36,21 @@ class NotesCLI {
 ${colors.cyan}Apple Notes CLI${colors.reset} v${packageJson.version}
 
 ${colors.yellow}Usage:${colors.reset}
-  notes-cli <title> [body]     Create a new note
-  notes-cli list [--limit N]   List notes (default limit: 20)
-  notes-cli folders            List all folders
-  notes-cli show <note-id>     Show note content in markdown
-  notes-cli --version          Show version
-  notes-cli --update           Check for updates
-  notes-cli --help             Show this help
+  notes-cli notes list [--limit N]          List all notes (default limit: 20)
+  notes-cli folders list                    List all folders
+  notes-cli folder create <name>            Create a new folder
+  notes-cli note <note-id>                  Show note content in markdown
+  notes-cli note create <title> [body] [@F] Create a new note (optionally in folder F)
+  notes-cli --version                       Show version
+  notes-cli --update                        Check for updates
+  notes-cli --help                          Show this help
 
 ${colors.yellow}Examples:${colors.reset}
-  notes-cli "My Note"
-  notes-cli "Meeting Notes" "## Agenda\\n- Point 1\\n- Point 2"
-  notes-cli "Python Cheatsheet" "# Python Basics\\n- Variables\\n- Functions"
-  notes-cli "Session Summary" "## Key Points from today:\\n- Learned X\\n- Fixed Y"
+  notes-cli notes list --limit 10
+  notes-cli folders list
+  notes-cli folder create "Work"
+  notes-cli note create "My Note" "Some content here"
+  notes-cli note create "Work Task" "Details here" @Work
   
 ${colors.yellow}AI Assistant Integration:${colors.reset}
   Say any of these to your AI assistant:
@@ -200,6 +202,28 @@ What would you like me to save to your Notes?
   }
 
   /**
+   * Create a folder
+   */
+  async createFolder(name) {
+    try {
+      if (!name) {
+        console.error(`${colors.red}Error: Folder name required${colors.reset}`);
+        console.log(`\nUsage: notes-cli folder create <name>`);
+        process.exit(1);
+      }
+
+      const result = await this.core.createFolder(name);
+      console.log(`${colors.green}✓${colors.reset} ${result}`);
+    } catch (error) {
+      console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
+      if (process.env.DEBUG === 'true') {
+        console.error(colors.gray, error.stack, colors.reset);
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
    * Show a note's content
    */
   async showNote(noteId) {
@@ -229,7 +253,7 @@ What would you like me to save to your Notes?
   /**
    * Create a note
    */
-  async createNote(title, body = '') {
+  async createNote(title, body = '', options = {}) {
     try {
       if (!title) {
         console.error(`${colors.red}Error: Title required${colors.reset}`);
@@ -237,7 +261,7 @@ What would you like me to save to your Notes?
         process.exit(1);
       }
 
-      const result = await this.core.create(title, body);
+      const result = await this.core.create(title, body, options);
       console.log(`${colors.green}✓${colors.reset} ${result}`);
     } catch (error) {
       console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
@@ -269,8 +293,8 @@ async function main() {
     process.exit(0);
   }
 
-  // AI Assistant mode
-  if (command === '/note' || command === 'note') {
+  // AI Assistant mode (legacy)
+  if (command === '/note') {
     cli.showAIMessage();
     process.exit(0);
   }
@@ -281,9 +305,10 @@ async function main() {
     process.exit(0);
   }
 
-  // List command
-  if (command === 'list' || command === '--list' || command === '-l') {
-    // Parse --limit option
+  const subCommand = args[1];
+
+  // notes list [--limit N]
+  if (command === 'notes' && subCommand === 'list') {
     let limit = 20;
     const limitIndex = args.indexOf('--limit');
     if (limitIndex !== -1 && args[limitIndex + 1]) {
@@ -293,35 +318,97 @@ async function main() {
     process.exit(0);
   }
 
-  // Folders command
-  if (command === 'folders' || command === '--folders' || command === '-f') {
+  // folders list
+  if (command === 'folders' && subCommand === 'list') {
     await cli.listFolders();
     process.exit(0);
   }
 
-  // Show command
+  // folder create <name>
+  if (command === 'folder' && subCommand === 'create') {
+    const folderName = args[2];
+    await cli.createFolder(folderName);
+    process.exit(0);
+  }
+
+  // note <note-id> (show note content)
+  // note create <title> [body] [@Folder]
+  if (command === 'note') {
+    if (subCommand === 'create') {
+      // Parse @Folder syntax - find argument starting with @
+      let folder = null;
+      let bodyArgs = [];
+
+      for (let i = 3; i < args.length; i++) {
+        if (args[i].startsWith('@')) {
+          folder = args[i].substring(1); // Remove the @ prefix
+        } else {
+          bodyArgs.push(args[i]);
+        }
+      }
+
+      const title = args[2];
+      const body = bodyArgs.join(' ');
+
+      if (!title) {
+        console.error(`${colors.red}Error: Title required${colors.reset}`);
+        console.log(`\nUsage: notes-cli note create <title> [body] [@FolderName]`);
+        process.exit(1);
+      }
+      await cli.createNote(title, body, { folder });
+      process.exit(0);
+    } else if (subCommand) {
+      // subCommand is the note ID
+      await cli.showNote(subCommand);
+      process.exit(0);
+    } else {
+      cli.showAIMessage();
+      process.exit(0);
+    }
+  }
+
+  // Legacy commands for backward compatibility
+  // list [--limit N]
+  if (command === 'list' || command === '--list' || command === '-l') {
+    let limit = 20;
+    const limitIndex = args.indexOf('--limit');
+    if (limitIndex !== -1 && args[limitIndex + 1]) {
+      limit = parseInt(args[limitIndex + 1], 10) || 20;
+    }
+    await cli.listNotes({ limit });
+    process.exit(0);
+  }
+
+  // folders (legacy)
+  if (command === 'folders' && !subCommand) {
+    await cli.listFolders();
+    process.exit(0);
+  }
+
+  // show <note-id> (legacy)
   if (command === 'show' || command === '--show' || command === '-s') {
     const noteId = args[1];
     await cli.showNote(noteId);
     process.exit(0);
   }
 
-  // Optional 'create' or 'add' subcommand
+  // create <title> [body] (legacy)
   if (command === 'create' || command === 'add') {
-    args.shift();
+    const title = args[1];
+    const body = args.slice(2).join(' ');
+    if (!title) {
+      console.error(`${colors.red}Error: Title required${colors.reset}`);
+      cli.showHelp();
+      process.exit(1);
+    }
+    await cli.createNote(title, body);
+    process.exit(0);
   }
 
-  // Create note
-  const title = args[0];
-  const body = args.slice(1).join(' ');
-
-  if (!title) {
-    console.error(`${colors.red}Error: Title required${colors.reset}`);
-    cli.showHelp();
-    process.exit(1);
-  }
-
-  await cli.createNote(title, body);
+  // Unknown command
+  console.error(`${colors.red}Error: Unknown command '${command}'${colors.reset}`);
+  cli.showHelp();
+  process.exit(1);
 }
 
 // Error handling
