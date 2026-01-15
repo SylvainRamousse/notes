@@ -89,10 +89,13 @@ server.tool(
     }
 );
 
-// Tool: Delete a folder
+// Tool: Delete a folder (destructive)
 server.tool(
     'folder_delete',
-    'Delete a folder from Apple Notes',
+    {
+        description: 'Delete a folder from Apple Notes (DESTRUCTIVE)',
+        destructiveHint: true,
+    },
     {
         name: z.string().describe('Name of the folder to delete'),
     },
@@ -159,10 +162,13 @@ server.tool(
     }
 );
 
-// Tool: Edit a note
+// Tool: Edit a note (destructive - modifies content)
 server.tool(
     'note_edit',
-    'Edit an existing Apple Note',
+    {
+        description: 'Edit an existing Apple Note (MODIFIES CONTENT)',
+        destructiveHint: true,
+    },
     {
         noteId: z.string().describe('The ID of the note to edit'),
         title: z.string().optional().describe('New title for the note'),
@@ -194,10 +200,13 @@ server.tool(
     }
 );
 
-// Tool: Delete a note
+// Tool: Delete a note (destructive)
 server.tool(
     'note_delete',
-    'Delete an Apple Note',
+    {
+        description: 'Delete an Apple Note (DESTRUCTIVE)',
+        destructiveHint: true,
+    },
     {
         noteId: z.string().describe('The ID of the note to delete'),
     },
