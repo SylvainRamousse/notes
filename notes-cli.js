@@ -23,8 +23,8 @@ const colors = {
 
 class NotesCLI {
   constructor() {
-    this.core = new NotesCore({ 
-      debug: process.env.DEBUG === 'true' 
+    this.core = new NotesCore({
+      debug: process.env.DEBUG === 'true'
     });
   }
 
@@ -36,7 +36,8 @@ class NotesCLI {
 ${colors.cyan}Apple Notes CLI${colors.reset} v${packageJson.version}
 
 ${colors.yellow}Usage:${colors.reset}
-  notes-cli <title> [body]    Create a new note
+  notes-cli <title> [body]     Create a new note
+  notes-cli list [--limit N]   List notes (default limit: 20)
   notes-cli --version          Show version
   notes-cli --update           Check for updates
   notes-cli --help             Show this help
@@ -104,21 +105,21 @@ What would you like me to save to your Notes?
   async checkUpdate() {
     try {
       console.log(`${colors.cyan}Checking for updates...${colors.reset}`);
-      
+
       // Get latest version from npm (secure, no shell)
       const npmResult = spawnSync('npm', ['view', 'apple-notes-cli', 'version'], {
         encoding: 'utf8',
         shell: false,
         timeout: 10000
       });
-      
+
       if (npmResult.status !== 0) {
         throw new Error('npm check failed');
       }
-      
+
       const latestVersion = npmResult.stdout.trim();
       const currentVersion = packageJson.version;
-      
+
       if (latestVersion === currentVersion) {
         console.log(`${colors.green}✓${colors.reset} You have the latest version (v${currentVersion})`);
       } else {
@@ -134,6 +135,37 @@ What would you like me to save to your Notes?
   }
 
   /**
+   * List notes
+   */
+  async listNotes(options = {}) {
+    try {
+      const limit = options.limit || 20;
+      const notes = await this.core.list({ limit });
+
+      if (notes.length === 0) {
+        console.log(`${colors.yellow}No notes found${colors.reset}`);
+        return;
+      }
+
+      console.log(`\n${colors.cyan}📝 Your Notes${colors.reset} (${notes.length} shown)\n`);
+
+      notes.forEach((note, index) => {
+        const num = String(index + 1).padStart(2, ' ');
+        console.log(`${colors.gray}${num}.${colors.reset} ${colors.green}${note.name}${colors.reset}`);
+        console.log(`    ${colors.gray}Modified: ${note.modificationDate}${colors.reset}`);
+      });
+
+      console.log('');
+    } catch (error) {
+      console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
+      if (process.env.DEBUG === 'true') {
+        console.error(colors.gray, error.stack, colors.reset);
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
    * Create a note
    */
   async createNote(title, body = '') {
@@ -143,7 +175,7 @@ What would you like me to save to your Notes?
         this.showHelp();
         process.exit(1);
       }
-      
+
       const result = await this.core.create(title, body);
       console.log(`${colors.green}✓${colors.reset} ${result}`);
     } catch (error) {
@@ -160,49 +192,61 @@ What would you like me to save to your Notes?
 async function main() {
   const cli = new NotesCLI();
   const args = process.argv.slice(2);
-  
+
   // Handle commands
   const command = args[0];
-  
+
   // Version
   if (command === '--version' || command === '-v') {
     cli.showVersion();
     process.exit(0);
   }
-  
+
   // Update
   if (command === '--update' || command === '-u') {
     await cli.checkUpdate();
     process.exit(0);
   }
-  
+
   // AI Assistant mode
   if (command === '/note' || command === 'note') {
     cli.showAIMessage();
     process.exit(0);
   }
-  
+
   // Help
   if (!command || command === '--help' || command === '-h' || command === 'help' || command === '/help') {
     cli.showHelp();
     process.exit(0);
   }
-  
+
+  // List command
+  if (command === 'list' || command === '--list' || command === '-l') {
+    // Parse --limit option
+    let limit = 20;
+    const limitIndex = args.indexOf('--limit');
+    if (limitIndex !== -1 && args[limitIndex + 1]) {
+      limit = parseInt(args[limitIndex + 1], 10) || 20;
+    }
+    await cli.listNotes({ limit });
+    process.exit(0);
+  }
+
   // Optional 'create' or 'add' subcommand
   if (command === 'create' || command === 'add') {
     args.shift();
   }
-  
+
   // Create note
   const title = args[0];
   const body = args.slice(1).join(' ');
-  
+
   if (!title) {
     console.error(`${colors.red}Error: Title required${colors.reset}`);
     cli.showHelp();
     process.exit(1);
   }
-  
+
   await cli.createNote(title, body);
 }
 

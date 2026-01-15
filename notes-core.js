@@ -197,6 +197,52 @@ class NotesCore {
   }
 
   /**
+   * List all notes from Apple Notes
+   * @param {Object} options - Options for listing notes
+   * @param {number} options.limit - Maximum number of notes to return (default: 50)
+   * @returns {Array} Array of note objects with id, name, creationDate, modificationDate
+   */
+  async list(options = {}) {
+    const limit = options.limit || 50;
+    
+    const script = `
+      tell application "Notes"
+        set noteList to {}
+        set noteCount to 0
+        repeat with aNote in notes
+          if noteCount >= ${limit} then exit repeat
+          set noteId to id of aNote
+          set noteName to name of aNote
+          set noteCreation to creation date of aNote as string
+          set noteModification to modification date of aNote as string
+          set end of noteList to noteId & "|||" & noteName & "|||" & noteCreation & "|||" & noteModification
+          set noteCount to noteCount + 1
+        end repeat
+        set AppleScript's text item delimiters to "###"
+        return noteList as text
+      end tell
+    `;
+    
+    const result = await this.executeAppleScript(script);
+    
+    if (!result || result.trim() === '') {
+      return [];
+    }
+    
+    const notes = result.split('###').map(noteStr => {
+      const [id, name, creationDate, modificationDate] = noteStr.split('|||');
+      return {
+        id: id?.trim() || '',
+        name: name?.trim() || '',
+        creationDate: creationDate?.trim() || '',
+        modificationDate: modificationDate?.trim() || ''
+      };
+    }).filter(note => note.id && note.name);
+    
+    return notes;
+  }
+
+  /**
    * Create a new note
    */
   async create(title, body = '') {
